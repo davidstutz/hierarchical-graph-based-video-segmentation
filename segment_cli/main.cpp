@@ -78,8 +78,9 @@
 #include <boost/program_options.hpp>
 #include <boost/timer.hpp>
 #include "io.h"
-#include "graph_segmentation.h"
 #include "io_util.h"
+#include "graph_segmentation.h"
+#include "evaluation.h"
 
 int main(int argc, char** argv) {
 
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
         ("help", "produce help message")
         ("input-video", boost::program_options::value<std::string>(), "directory of input video (provided as sequence of individual images)")
         ("input-flow", boost::program_options::value<std::string>(), "input flow directory (text files in cv::Storage format, see io.h)")
+        ("input-gt", boost::program_options::value<std::string>(), "input ground truth; if given, some metrics will be computed and displayed")
         ("length", boost::program_options::value<int>()->default_value(10), "length of video to oversegment (may be lower than the actual sequence length)")
         ("flow-weight", boost::program_options::value<float>()->default_value(0.2f), "weight on flow angle for edge weight computation")
         ("threshold", boost::program_options::value<float>()->default_value(0.02), "threshold (is multiplied by 1.3 for each additional hierarchy level)")
@@ -120,6 +122,18 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    
+    bool groundTruth = false;
+    boost::filesystem::path gt_dir(parameters["input-gt"].as<std::string>());
+    if (!gt_dir.empty()) {
+        if (!boost::filesystem::is_directory(gt_dir)) {
+            std::cout << "Specified ground truth directory does not exist." << std::endl;
+            return 1;
+        }
+        
+        groundTruth = true;
+    }
+    
     bool visualize = false;
     boost::filesystem::path vis_dir(parameters["vis-dir"].as<std::string>());
     if (!vis_dir.empty()) {
@@ -137,6 +151,11 @@ int main(int argc, char** argv) {
     
     Video video = IO::readVideo(in_dir, parameters["length"].as<int>());
     FlowVideo flowVideo = IO::readFlowVideo(flow_dir, parameters["length"].as<int>());
+    
+    SegmentationVideo gtVideo;
+    if (groundTruth) {
+        gtVideo = IO::readSegmentationVideo(gt_dir, parameters["length"].as<int>());
+    }
     
     assert(video.getFrameNumber() > 0);
     assert(video.getFrameNumber() == flowVideo.getFrameNumber());
@@ -157,25 +176,36 @@ int main(int argc, char** argv) {
     segmenter.buildGraph(video, flowVideo);
     
     segmenter.buildEdges();
-    std::cout << "Built graph (0) (" << timer.elapsed() << ")." << std::endl;
+    std::cout << "----- Level 0" << std::endl;
+    std::cout << "Built graph (" << timer.elapsed() << ")." << std::endl;
     
     timer.restart();
     segmenter.oversegmentGraph();
-    std::cout << "Oversegmented graph (0) (" << timer.elapsed() << ")." 
+    std::cout << "Oversegmented graph (" << timer.elapsed() << ")." 
             << std::endl;
     
     timer.restart();
     segmenter.enforceMinimumSegmentSize(M);
-    std::cout << "Enforced minimum region size (0) (" << timer.elapsed() 
+    std::cout << "Enforced minimum region size (" << timer.elapsed() 
             << ")." << std::endl;
     
-    SegmentationVideo sv_video = segmenter.deriveLabels();
+    SegmentationVideo svVideo = segmenter.deriveLabels();
     IO::writeSegmentationVideo(out_dir / boost::filesystem::path("0"), 
-                sv_video);
+                svVideo);
+    
+    if (groundTruth) {
+        float boundary_recall = Evaluation::compute3DBoundaryRecall(svVideo, gtVideo);
+        float undersegmentation_error = Evaluation::compute3DNPUndersegmentationError(svVideo, gtVideo);
+        float achievable_segmentation_accuracy = Evaluation::compute3DAchievableSegmentationAccuracy(svVideo, gtVideo);
+        
+        std::cout << "3D Boundary Recall: " << boundary_recall << std::endl;
+        std::cout << "3D Undersegmentation Error: " << undersegmentation_error << std::endl;
+        std::cout << "3D Achievable Segmentation Accuracy: " << achievable_segmentation_accuracy << std::endl;
+    }
     
     if (visualize) {
         IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path("0"), 
-                sv_video);
+                svVideo);
     }
     
     GraphSegmentationHierarchyMagic* hmagic = new GraphSegmentationHierarchyMagicThreshold(c, 1.3);
@@ -186,28 +216,40 @@ int main(int argc, char** argv) {
     segmenter.setHierarchyDistance(hdistance);
     
     for (int l = 0; l < L; l++) {
+        
         timer.restart();
         segmenter.buildRegionGraph();
-        std::cout << "Built region graph (" << (l + 1) << ") ("
+        std::cout << "----- Level " << (l + 1) << std::endl;
+        std::cout << "Built region graph ("
                 << timer.elapsed() << ")." << std::endl;
         
         timer.restart();
         segmenter.addHierarchyLevel();
-        std::cout << "Segmented region graph (" << (l + 1) << ") ("
+        std::cout << "Segmented region graph ("
                 << timer.elapsed() << ")." << std::endl;
         
         timer.restart();
         segmenter.enforceMinimumSegmentSize(l/2 * M);
-        std::cout << "Enforce minimum segment size (" << (l + 1) << ") ("
+        std::cout << "Enforce minimum segment size ("
                 << timer.elapsed() << ")." << std::endl;
         
-        SegmentationVideo sv_video = segmenter.deriveLabels();
+        SegmentationVideo svVideo = segmenter.deriveLabels();
         IO::writeSegmentationVideo(out_dir / boost::filesystem::path(std::to_string(l + 1)), 
-                sv_video);
+                svVideo);
+        
+        if (groundTruth) {
+            float boundary_recall = Evaluation::compute3DBoundaryRecall(svVideo, gtVideo);
+            float undersegmentation_error = Evaluation::compute3DNPUndersegmentationError(svVideo, gtVideo);
+            float achievable_segmentation_accuracy = Evaluation::compute3DAchievableSegmentationAccuracy(svVideo, gtVideo);
+
+            std::cout << "3D Boundary Recall: " << boundary_recall << std::endl;
+            std::cout << "3D Undersegmentation Error: " << undersegmentation_error << std::endl;
+            std::cout << "3D Achievable Segmentation Accuracy: " << achievable_segmentation_accuracy << std::endl;
+        }
         
         if (visualize) {
             IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path(std::to_string(l + 1)), 
-                    sv_video);
+                    svVideo);
         }
     }
     

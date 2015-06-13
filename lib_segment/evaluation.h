@@ -81,8 +81,7 @@ public:
      * @param gt_video
      * @param d
      */
-    template<class V>
-    static float compute3DBoundaryRecall(V & sv_video, 
+    static float compute3DBoundaryRecall(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d = 0.0025);
     /**
      * Compute 3D boundary precision (see 2D description). This includes
@@ -92,8 +91,7 @@ public:
      * @param gt_video
      * @param d
      */
-    template<class V>
-    static float compute3DBoundaryPrecision(V & sv_video, 
+    static float compute3DBoundaryPrecision(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d = 0.0025);
     /**
      * Compute boundary recall (for each frame):
@@ -111,8 +109,7 @@ public:
      * @param gt_video
      * @param d
      */
-    template<class V>
-    static std::vector<float> compute2DBoundaryRecallPerFrame(V & sv_video, 
+    static std::vector<float> compute2DBoundaryRecallPerFrame(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d = 0.0025);
     /**
      * Compute boundary precision (for each frame):
@@ -130,8 +127,7 @@ public:
      * @param gt_video
      * @param d
      */
-    template<class V>
-    static std::vector<float> compute2DBoundaryPrecisionPerFrame(V & sv_video, 
+    static std::vector<float> compute2DBoundaryPrecisionPerFrame(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d = 0.0025);
     /**
      * 3D Undersegmentation Error as proposed by Xu and Corso in [1]. This is a

@@ -101,8 +101,7 @@ inline bool isTemporalBoundaryPixel(SegmentationVideo & video, int t,
     return false;
 }
 
-template<class V>
-float Evaluation::compute3DBoundaryRecall(V & sv_video, 
+float Evaluation::compute3DBoundaryRecall(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d) {
     
     assert(sv_video.getFrameNumber() == gt_video.getFrameNumber());
@@ -167,11 +166,7 @@ float Evaluation::compute3DBoundaryRecall(V & sv_video,
     return tp/(tp + fn);
 }
 
-template float Evaluation::compute3DBoundaryRecall<SegmentationVideo>(SegmentationVideo&, 
-        SegmentationVideo&, float);
-
-template<class V>
-float Evaluation::compute3DBoundaryPrecision(V & sv_video, 
+float Evaluation::compute3DBoundaryPrecision(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d) {
     
     assert(sv_video.getFrameNumber() == gt_video.getFrameNumber());
@@ -264,11 +259,7 @@ float Evaluation::compute3DBoundaryPrecision(V & sv_video,
     return 0;
 }
 
-template float Evaluation::compute3DBoundaryPrecision<SegmentationVideo>(SegmentationVideo&, 
-        SegmentationVideo&, float);
-
-template<class V>
-std::vector<float> Evaluation::compute2DBoundaryRecallPerFrame(V & sv_video, 
+std::vector<float> Evaluation::compute2DBoundaryRecallPerFrame(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d) {
     
     assert(sv_video.getFrameNumber() == gt_video.getFrameNumber());
@@ -317,11 +308,7 @@ std::vector<float> Evaluation::compute2DBoundaryRecallPerFrame(V & sv_video,
     return recall;
 }
 
-template std::vector<float> Evaluation::compute2DBoundaryRecallPerFrame<SegmentationVideo>(SegmentationVideo&, 
-        SegmentationVideo&, float);
-
-template<class V>
-std::vector<float> Evaluation::compute2DBoundaryPrecisionPerFrame(V & sv_video, 
+std::vector<float> Evaluation::compute2DBoundaryPrecisionPerFrame(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video, float d) {
     
     assert(sv_video.getFrameNumber() == gt_video.getFrameNumber());
@@ -384,9 +371,6 @@ std::vector<float> Evaluation::compute2DBoundaryPrecisionPerFrame(V & sv_video,
     
     return precision;
 }
-
-template std::vector<float> Evaluation::compute2DBoundaryPrecisionPerFrame<SegmentationVideo>(SegmentationVideo&, 
-        SegmentationVideo&, float);
 
 float Evaluation::compute3DXCUndersegmentationError(SegmentationVideo & sv_video, 
             SegmentationVideo & gt_video) {

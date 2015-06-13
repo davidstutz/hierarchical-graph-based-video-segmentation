@@ -24,7 +24,11 @@ Further, evaluation metrics based on the Precision-Recall Framework for videos [
         Superpixel benchmark and comparison.
         In Forum Bildverarbeitung, Regensburg, Germany, November 2012.
 
-The algorithm is based on optical flow, therefore a command line tool to pre-compute optical flow using OpenCV is provided. For further optical flow algorithms, we refer to the [Sintel dataset](http://sintel.is.tue.mpg.de/results). Note that `alley_1` includes ten frames of a sample sequence taken from the Sintel dataset and the `alley_1_flow` folder contains the ground truth flow in the correct format (the original format is not compatible with this implementation; code provided by the Sintel dataset has been used for conversion).
+The algorithm is based on optical flow, therefore a command line tool to pre-compute optical flow using OpenCV is provided. Further, the `alley_1` sequence form the [Sintel dataset]() [6] is provided. Pre-computed flow (in the correct format, see `alley_1_flow` and `optical_flow_cli`) as well as ground truth is provided (see `alley_1_gt`).
+
+    [6] D. J. Butler, J. Wulff, G. B. Stanley and M. J. Black.
+        A naturalistic open source movie for optical flow evaluation.
+        In European Conference on Computer Vision, pages 611--625, October 2012.
 
 ![Example: original sequence, initial oversegmentation and a selected hierarchy level.](results/alley_1_full_spaced_690.png?raw=true "Example: original sequence, initial oversegmentation and a selected hierarchy level.")
 
@@ -55,16 +59,15 @@ The implementation is based on [OpenCV](http://opencv.org/), see [here](http://d
     Linking CXX executable optical_flow_cli
     [100%] Built target optical_flow_cli
     # Run video segmentation on the alley_1 sequence and save visualization to build/output_vis:
-    $ ./segment_cli/segment_cli ../alley_1 ../alley_1_flow/ --vis-dir output_vis
-    Built graph (0) (2.09012).
-    Oversegmented graph (0) (3.23881).
-    Enforced minimum region size (0) (2.45697).
-    Built region graph (1) (1.22925).
-    Segmented region graph (1) (0.865099).
-    Enforce minimum segment size (1) (0.808102).
+    $ ./segment_cli/segment_cli ../alley_1 ../alley_1_flow/ --vis-dir output_vis --input-gt ../alley_1_gt/
+    ----- Level 0
+    Built graph (1.43415).
+    Oversegmented graph (3.04033).
+    Enforced minimum region size (2.0374).
+    3D Boundary Recall: 0.990899
+    3D Undersegmentation Error: 0.0906389
+    3D Achievable Segmentation Accuracy: 0.954518
     # ...
-
-For 10 frames, the algorithm needs approximately 8 seconds for the initial oversegmentation and approximately 3 seconds for every additional level.
 
 The two command line tools provide the following options:
 
@@ -75,6 +78,8 @@ The two command line tools provide the following options:
                                        sequence of individual images)
       --input-flow arg                 input flow directory (text files in 
                                        cv::Storage format, see io.h)
+      --input-gt arg                   input ground truth; if given, some metrics 
+                                       will be computed and displayed
       --length arg (=10)               length of video to oversegment (may be lower
                                        than the actual sequence length)
       --flow-weight arg (=0.200000003) weight on flow angle for edge weight 
@@ -108,7 +113,7 @@ The two command line tools provide the following options:
 
 ## Usage
 
-An usage example can be found in `segment_cli/main.cpp`. See also `io.h` and `io_util.h` for basic input and output and the format of the labels computed by the algorithm. Example usage:
+An usage example can be found in `segment_cli/main.cpp`. Example:
 
     // The video is expected to be provided as sequence of images, see alley_1 as example.
     // The same holds for the optical flow, which is provided using text files formatted
@@ -136,36 +141,24 @@ An usage example can be found in `segment_cli/main.cpp`. See also `io.h` and `io
     
     GraphSegmentation segmenter(distance, magic);
     
-    boost::timer timer;
     // Setup the video graph.
     segmenter.buildGraph(video, flowVideo);
-    segmenter.buildEdges();
-    std::cout << "Built graph (0) (" << timer.elapsed() << ")." << std::endl;
-    
-    timer.restart();
+    segmenter.buildEdges();    
+
     // Oversegment the video.
     segmenter.oversegmentGraph();
-    std::cout << "Oversegmented graph (0) (" << timer.elapsed() << ")." 
-            << std::endl;
     
-    timer.restart();
     // Enforce minimum segment size.
     segmenter.enforceMinimumSegmentSize(M);
-    std::cout << "Enforced minimum region size (0) (" << timer.elapsed() 
-            << ")." << std::endl;
     
     // Get the corresponding segmentation video (that is containing the labels.
     // The video contains length three channel images where the labels are encoded 
     // as 24 bit numbers, see io_util.h
     SegmentationVideo sv_video = segmenter.deriveLabels();
-    IO::writeSegmentationVideo(out_dir / boost::filesystem::path("0"), 
-                sv_video);
+    IO::writeSegmentationVideo(out_dir / boost::filesystem::path("0"), sv_video);
     
-    // Visualize if requested.
-    if (visualize) {
-        IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path("0"), 
-                sv_video);
-    }
+    // Visualize by randonly coloring segments.
+    IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path("0"), sv_video);
     
     // Each new hierarchy level, the threshold is raised by the factor 1.3.
     GraphSegmentationHierarchyMagic* hmagic = new GraphSegmentationHierarchyMagicThreshold(c, 1.3);
@@ -175,34 +168,25 @@ An usage example can be found in `segment_cli/main.cpp`. See also `io.h` and `io
     segmenter.setHierarchyMagic(hmagic);
     segmenter.setHierarchyDistance(hdistance);
     
-    // Building the hierarchy proceeds similar to the initial oversegmentation.
     for (int l = 0; l < L; l++) {
-        timer.restart();
+        // Build the region graph.
         segmenter.buildRegionGraph();
-        std::cout << "Built region graph (" << (l + 1) << ") ("
-                << timer.elapsed() << ")." << std::endl;
         
-        timer.restart();
+        // Segment the region graph.
         segmenter.addHierarchyLevel();
-        std::cout << "Segmented region graph (" << (l + 1) << ") ("
-                << timer.elapsed() << ")." << std::endl;
         
-        timer.restart();
+        // Enforce minimum segment size.
         segmenter.enforceMinimumSegmentSize(l/2 * M);
-        std::cout << "Enforce minimum segment size (" << (l + 1) << ") ("
-                << timer.elapsed() << ")." << std::endl;
         
         SegmentationVideo sv_video = segmenter.deriveLabels();
         IO::writeSegmentationVideo(out_dir / boost::filesystem::path(std::to_string(l + 1)), 
                 sv_video);
         
-        if (visualize) {
-            IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path(std::to_string(l + 1)), 
-                    sv_video);
-        }
+        IO::writeColoredSegmentationVideo(vis_dir / boost::filesystem::path(std::to_string(l + 1)), 
+                sv_video);
     }
 
-
+Further documentation can be found in the corresponding header files: `graph_segmentation.h`, `evaluation.h`, `io.h`.
 
 ## License
 
