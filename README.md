@@ -1,5 +1,7 @@
 # Hierarchical Graph-Based Video Segmentation
 
+[![Build Status](https://travis-ci.org/davidstutz/hierarchical-graph-based-video-segmentation.svg?branch=master)](https://travis-ci.org/davidstutz/hierarchical-graph-based-video-segmentation)
+
 This is an implementation of the hierarchical graph-based video segmentation algorithm proposed by Grundmann et al. [1] based on the graph-based image segmentation algorithm by Felzenswalb and Huttenlocher [2].
 
     [1] M. Grundmann, V. Kwatra, M. Han, and I. A. Essa.
