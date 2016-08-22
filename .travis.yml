@@ -1,5 +1,9 @@
 language: cpp
 
+# For Ubuntu 14.04 C++11/15 support ...
+sudo: required
+dist: trusty
+
 compiler:  
     - gcc
 
